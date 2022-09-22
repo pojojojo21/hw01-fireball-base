@@ -69,8 +69,31 @@ float fbm3D(float x, float y, float z) {
     return total;
 }
 
+float fbmLOW(float x, float y, float z) {
+    float total = 0.f;
+    float persistence = 0.5f;
+    int octaves = 2;
+    float freq = 0.2;
+    float amp = 0.8;
+    for(int i = 1; i <= octaves; i++) {
+        total += interpNoise3D(x * freq,
+                               y * freq, z * freq) * amp;
+
+        freq *= 2.f;
+        amp *= persistence;
+    }
+    return total;
+}
+
 float bias(float t, float b) {
     return (t / ((((1.0f/b) - 2.0f)*(1.0f - t)) + 1.0f));
+}
+
+float gain(float t, float g) {
+    if (t < 0.5)
+        return bias(t * 2.0, g)/2.0;
+    else
+        return bias(t * 2.0 - 1.0, 1.0 - g)/2.0 + 0.5;
 }
 
 void main()
@@ -79,22 +102,21 @@ void main()
         vec4 diffuseColor = u_Color;
 
         float t = fs_Time;
-        // t = bias(t, 100.0f);
         vec3 animPos = fs_Pos.xyz;
-        animPos.x = (cos(t) * fs_Pos.x - sin(t) * fs_Pos.y);
+        animPos.x = (bias(cos(t), 0.1) * fs_Pos.x - bias(sin(t),0.1) * fs_Pos.y);
         animPos.y = (sin(t) * fs_Pos.x + cos(t) * fs_Pos.y);
         vec3 offset = vec3(cos(t), sin(t), -cos(t));
         animPos += offset;
 
         float noise = fbm3D(animPos.x,animPos.y,animPos.z);
-        float s = t;
-        float x = fs_Pos.x + noise * fs_Nor.x;
-        float y = fs_Pos.y + noise * fs_Nor.y;
-        float z = fs_Pos.z + noise * fs_Nor.z;
+        float noise2 = fbmLOW(animPos.x,animPos.y,animPos.z);
+        float x = fs_Pos.x + noise * fs_Nor.x + gain(noise2 * fs_Nor.x, 0.2);
+        float y = fs_Pos.y + noise * fs_Nor.y + gain(noise2 * fs_Nor.y, 0.5);
+        float z = fs_Pos.z + noise * fs_Nor.z + gain(noise2 * fs_Nor.z, 0.7);
         
         float fbmNoise = fbm3D(float(x), float(y), float(z));
         float dist = 10.0f * length(vec3(x,y,z) - (1.0f * fs_Nor.xyz));
-        dist = dist - (u_Amp * 10.0f);
+        dist = dist - ((u_Amp + 0.3) * 10.0f);
         vec3 colorChange = vec3(dist * fbmNoise, dist * fbmNoise, -dist * fbmNoise);
         // vec3 colorChange = vec3(fbmNoise, fbmNoise, -1.f * fbmNoise);
         diffuseColor = clamp(diffuseColor + vec4(colorChange, 0.f), 0.f, 1.f);

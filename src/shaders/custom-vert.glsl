@@ -22,6 +22,8 @@ uniform float u_Amp;          // The amplitude of 3Dfbm
 
 uniform float u_Freq;       // The freq of 3Dfbm
 
+uniform int u_Oct;        // The number of octaves
+
 in vec4 vs_Pos;             // The array of vertex positions passed to the shader
 
 in vec4 vs_Nor;             // The array of vertex normals passed to the shader
@@ -73,7 +75,7 @@ float interpNoise3D(float x, float y, float z) {
 float fbm3D(float x, float y, float z) {
     float total = 0.f;
     float persistence = 0.5f;
-    int octaves = 8;
+    int octaves = u_Oct;
     float freq = u_Freq;
     float amp = u_Amp;
     for(int i = 1; i <= octaves; i++) {
@@ -84,6 +86,33 @@ float fbm3D(float x, float y, float z) {
         amp *= persistence;
     }
     return total;
+}
+
+float fbmLOW(float x, float y, float z) {
+    float total = 0.f;
+    float persistence = 0.5f;
+    int octaves = 2;
+    float freq = 0.2;
+    float amp = 0.8;
+    for(int i = 1; i <= octaves; i++) {
+        total += interpNoise3D(x * freq,
+                               y * freq, z * freq) * amp;
+
+        freq *= 2.f;
+        amp *= persistence;
+    }
+    return total;
+}
+
+float bias(float t, float b) {
+    return (t / ((((1.0f/b) - 2.0f)*(1.0f - t)) + 1.0f));
+}
+
+float gain(float t, float g) {
+    if (t < 0.5)
+        return bias(t * 2.0, g)/2.0;
+    else
+        return bias(t * 2.0 - 1.0, 1.0 - g)/2.0 + 0.5;
 }
 
 void main()
@@ -100,18 +129,18 @@ void main()
     float t = float(u_Time) * 0.01;
     fs_Time = t;
     vec3 animPos = vs_Pos.xyz;
-    animPos.x = (cos(t) * vs_Pos.x - sin(t) * vs_Pos.y);
+    animPos.x = (bias(cos(t), 0.1) * vs_Pos.x - bias(sin(t),0.1) * vs_Pos.y);
     animPos.y = (sin(t) * vs_Pos.x + cos(t) * vs_Pos.y);
     vec3 offset = vec3(cos(t), sin(t), -cos(t));
     //offset.x = cos(t) * t - sin(t) * t;
     //offset.y = cos(t) * t - sin(t) * t;
     animPos += offset;
 
-    //vec3 animPos = vs_Pos.xyz + vec3(float(u_Time) * 0.01);
     float noise = fbm3D(animPos.x,animPos.y,animPos.z);
-    float x = vs_Pos.x + noise * vs_Nor.x;
-    float y = vs_Pos.y + noise * vs_Nor.y;
-    float z = vs_Pos.z + noise * vs_Nor.z;
+    float noise2 = fbmLOW(animPos.x,animPos.y,animPos.z);
+    float x = vs_Pos.x + noise * vs_Nor.x + gain(noise2 * vs_Nor.x, 0.2);
+    float y = vs_Pos.y + noise * vs_Nor.y + gain(noise2 * vs_Nor.y, 0.5);
+    float z = vs_Pos.z + noise * vs_Nor.z + gain(noise2 * vs_Nor.z, 0.7);
     vec4 altPos = vec4(x,y,z, 1.f);
 
     // linearly interpolate original position with respect to time and cos funct

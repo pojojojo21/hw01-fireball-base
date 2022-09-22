@@ -32,6 +32,7 @@ class ShaderProgram {
   unifTime: WebGLUniformLocation;
   unifAmp: WebGLUniformLocation;
   unifFreq: WebGLUniformLocation;
+  unifOct: WebGLUniformLocation;
 
   constructor(shaders: Array<Shader>) {
     this.prog = gl.createProgram();
@@ -54,6 +55,7 @@ class ShaderProgram {
     this.unifTime       = gl.getUniformLocation(this.prog, "u_Time"); // added time
     this.unifAmp        = gl.getUniformLocation(this.prog, "u_Amp"); // added amp
     this.unifFreq       = gl.getUniformLocation(this.prog, "u_Freq"); // added freq
+    this.unifOct       = gl.getUniformLocation(this.prog, "u_Oct"); // added octaves
   }
 
   use() {
@@ -112,6 +114,13 @@ class ShaderProgram {
     }
   }
 
+  setOct(oct: number) {
+    this.use();
+    if (this.unifOct !== -1) {
+      gl.uniform1i(this.unifOct, oct);
+    }
+  }
+  
   draw(d: Drawable) {
     this.use();
 
